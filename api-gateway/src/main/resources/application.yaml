@@ -1,0 +1,84 @@
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      mvc:
+        routes:
+          - id: ms-login-public
+            uri: ${MS_LOGIN_URL:http://localhost:8081}
+            predicates:
+              - Path=/auth/**
+
+          - id: ms-login
+            uri: ${MS_LOGIN_URL:http://localhost:8081}
+            predicates:
+              - Path=/usuarios, /usuarios/**
+
+          - id: ms-data
+            uri: ${MS_DATA_URL:http://localhost:8082}
+            predicates:
+              - Path=/datos, /datos/**
+
+          - id: ms-inventario
+            uri: ${MS_DATA_URL:http://localhost:8082}
+            predicates:
+              - Path=/inventario, /inventario/**
+
+          - id: ms-kpi
+            uri: ${MS_KPI_URL:http://localhost:8083}
+            predicates:
+              - Path=/kpi, /kpi/**
+
+          - id: ms-reportes
+            uri: ${MS_REPORTES_URL:http://localhost:8084}
+            predicates:
+              - Path=/reportes, /reportes/**
+
+server:
+  port: 8080
+
+# JWT secret compartido con MS-Login
+jwt:
+  secret: ${JWT_SECRET:cordillera-grupo-jwt-secret-key-2026}
+
+# Resilience4j – Circuit Breakers del Gateway
+resilience4j:
+  circuitbreaker:
+    instances:
+      login-cb:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+      data-cb:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+      kpi-cb:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+      reportes-cb:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,circuitbreakers
+  endpoint:
+    health:
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true

@@ -1,0 +1,83 @@
+services:
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: zookeeper-reportes
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - reportes-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka-reportes
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - reportes-net
+
+  mysql-reportes:
+    image: mysql:8.0
+    container_name: mysql-reportes-dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: db_reportes
+    ports:
+      - "3310:3306"
+    volumes:
+      - mysql-reportes-dev:/var/lib/mysql
+      - ./sql/db_reportes.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - reportes-net
+
+  ms-reportes:
+    build:
+      context: ./MS-reportes
+      dockerfile: Dockerfile
+    container_name: ms-reportes-dev
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-reportes:3306/db_reportes?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root123
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # MS-kpi y MS-data no están en esta red; usarán fallback/circuit breaker
+      FEIGN_KPI_URL: http://localhost:8083
+      FEIGN_DATA_URL: http://localhost:8082
+    depends_on:
+      mysql-reportes:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - reportes-net
+
+volumes:
+  mysql-reportes-dev:
+
+networks:
+  reportes-net:
+    driver: bridge

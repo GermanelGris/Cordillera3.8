@@ -1,0 +1,25 @@
+services:
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway-dev
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      JWT_SECRET: cordillera-grupo-jwt-secret-key-2026
+      # Apuntar a localhost asumiendo que los MS corren en la máquina host
+      MS_LOGIN_URL: http://host.docker.internal:8081
+      MS_DATA_URL: http://host.docker.internal:8082
+      MS_KPI_URL: http://host.docker.internal:8083
+      MS_REPORTES_URL: http://host.docker.internal:8084
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - gateway-net
+
+networks:
+  gateway-net:
+    driver: bridge

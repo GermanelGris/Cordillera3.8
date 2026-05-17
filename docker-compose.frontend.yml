@@ -1,0 +1,19 @@
+services:
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend-dev
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    # Nginx hace proxy a api-gateway en host
+    extra_hosts:
+      - "api-gateway:host-gateway"
+    networks:
+      - frontend-net
+
+networks:
+  frontend-net:
+    driver: bridge

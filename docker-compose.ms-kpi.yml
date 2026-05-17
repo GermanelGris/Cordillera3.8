@@ -1,0 +1,82 @@
+services:
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: zookeeper-kpi
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - kpi-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka-kpi
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - kpi-net
+
+  mysql-kpi:
+    image: mysql:8.0
+    container_name: mysql-kpi-dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: db_kpi
+    ports:
+      - "3309:3306"
+    volumes:
+      - mysql-kpi-dev:/var/lib/mysql
+      - ./sql/db_kpi.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - kpi-net
+
+  ms-kpi:
+    build:
+      context: ./MS-kpi
+      dockerfile: Dockerfile
+    container_name: ms-kpi-dev
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-kpi:3306/db_kpi?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root123
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # MS-data no está en esta red; los Feign calls fallarán con fallback/circuit breaker
+      FEIGN_DATA_URL: http://localhost:8082
+    depends_on:
+      mysql-kpi:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - kpi-net
+
+volumes:
+  mysql-kpi-dev:
+
+networks:
+  kpi-net:
+    driver: bridge
