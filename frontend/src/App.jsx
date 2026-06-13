@@ -7,6 +7,8 @@ import Login from './pages/Login'
 import Registro from './pages/Registro'
 import KpiPage from './pages/admin/KpiPage'
 import ReportesPage from './pages/admin/ReportesPage'
+import UsuariosPage from './pages/admin/UsuariosPage'
+import InventarioPage from './pages/admin/InventarioPage'
 import PosPage from './pages/vendedor/PosPage'
 import TiendaPage from './pages/usuario/TiendaPage'
 import Unauthorized from './pages/Unauthorized'
@@ -30,6 +32,16 @@ export default function App() {
         <Route path="/admin/reportes" element={
           <ProtectedRoute roles={['ADMIN']}>
             <ReportesPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/usuarios" element={
+          <ProtectedRoute roles={['ADMIN']}>
+            <UsuariosPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/inventario" element={
+          <ProtectedRoute roles={['ADMIN']}>
+            <InventarioPage />
           </ProtectedRoute>
         } />
 

@@ -41,7 +41,20 @@ export const datosApi = {
 
 export const inventarioApi = {
   listar:    ()                          => api.get('/inventario'),
+  obtener:   (id)                        => api.get(`/inventario/${id}`),
+  crear:     (data)                      => api.post('/inventario', data),
+  actualizar:(id, data)                  => api.put(`/inventario/${id}`, data),
+  eliminar:  (id)                        => api.delete(`/inventario/${id}`),
   descontar: (productoId, cantidad)      => api.post('/inventario/descontar', { productoId, cantidad }),
+}
+
+export const usuariosApi = {
+  listar:    ()         => api.get('/usuarios'),
+  obtener:   (id)       => api.get(`/usuarios/${id}`),
+  roles:     ()         => api.get('/usuarios/roles'),
+  crear:     (data)     => api.post('/usuarios', data),
+  actualizar:(id, data) => api.put(`/usuarios/${id}`, data),
+  eliminar:  (id)       => api.delete(`/usuarios/${id}`),
 }
 
 export default api

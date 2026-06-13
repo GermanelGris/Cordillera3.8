@@ -14,9 +14,11 @@ export default function Navbar() {
     if (!user) return null
     if (user.rol === 'ADMIN') return (
       <>
-        <Link to="/admin/kpi"      className="nav-link">📊 KPIs</Link>
-        <Link to="/admin/reportes" className="nav-link">📋 Reportes</Link>
-        <Link to="/tienda"         className="nav-link">🛒 Tienda</Link>
+        <Link to="/admin/usuarios"   className="nav-link">👥 Usuarios</Link>
+        <Link to="/admin/inventario" className="nav-link">📦 Inventario</Link>
+        <Link to="/admin/kpi"        className="nav-link">📊 KPIs</Link>
+        <Link to="/admin/reportes"   className="nav-link">📋 Reportes</Link>
+        <Link to="/tienda"           className="nav-link">🛒 Tienda</Link>
       </>
     )
     if (user.rol === 'VENDEDOR') return (
