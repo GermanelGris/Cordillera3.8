@@ -63,6 +63,22 @@ public class ReporteService {
         return reporteRepository.findByTipo(tipo.toUpperCase()).stream().map(this::toResponse).toList();
     }
 
+    @Transactional
+    public ReporteResponse actualizar(Long id, String titulo) {
+        Reporte reporte = reporteRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Reporte no encontrado con id: " + id));
+        if (titulo != null && !titulo.isBlank()) reporte.setTitulo(titulo);
+        return toResponse(reporteRepository.save(reporte));
+    }
+
+    @Transactional
+    public void eliminar(Long id) {
+        if (!reporteRepository.existsById(id)) {
+            throw new RuntimeException("Reporte no encontrado con id: " + id);
+        }
+        reporteRepository.deleteById(id);
+    }
+
     private ReporteResponse toResponse(Reporte r) {
         return ReporteResponse.builder()
                 .id(r.getId())

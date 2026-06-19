@@ -1,29 +1,28 @@
 import { useState, useEffect, useMemo } from 'react'
 import Navbar from '../../components/Navbar'
+import ConfirmModal from '../../components/ConfirmModal'
 import { inventarioApi } from '../../api/apiClient'
+import { useToast } from '../../context/ToastContext'
 
 const FORM_VACIO = { productoId: '', nombre: '', stock: '' }
-
-// Semáforo de stock: 🔴 bajo (<20) · 🟡 medio (20–49) · 🟢 bien (≥50)
 const UMBRAL_ROJO  = 20
 const UMBRAL_VERDE = 50
 
-function semaforoStock(stock) {
-  const s = stock ?? 0
-  if (s < UMBRAL_ROJO)  return { emoji: '🔴', label: 'Bajo',  badge: 'badge-red',   key: 'rojo' }
-  if (s < UMBRAL_VERDE) return { emoji: '🟡', label: 'Medio', badge: 'badge-gold',  key: 'amarillo' }
-  return                       { emoji: '🟢', label: 'Bien',  badge: 'badge-green', key: 'verde' }
+function semaforoStock(stock = 0) {
+  if (stock < UMBRAL_ROJO)  return { emoji: '🔴', label: 'Bajo',  badge: 'badge-red',   key: 'rojo' }
+  if (stock < UMBRAL_VERDE) return { emoji: '🟡', label: 'Medio', badge: 'badge-gold',  key: 'amarillo' }
+  return                           { emoji: '🟢', label: 'Bien',  badge: 'badge-green', key: 'verde' }
 }
 
 export default function InventarioPage() {
+  const { toast } = useToast()
   const [items, setItems]       = useState([])
   const [loading, setLoading]   = useState(true)
-  const [error, setError]       = useState('')
-  const [success, setSuccess]   = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editandoId, setEditandoId] = useState(null)
   const [saving, setSaving]     = useState(false)
   const [form, setForm]         = useState(FORM_VACIO)
+  const [confirm, setConfirm]   = useState(null)
 
   useEffect(() => { cargar() }, [])
 
@@ -32,8 +31,9 @@ export default function InventarioPage() {
       setLoading(true)
       const res = await inventarioApi.listar()
       setItems(Array.isArray(res.data) ? res.data : [])
-    } catch { setError('No se pudo conectar con el servicio de inventario') }
-    finally { setLoading(false) }
+    } catch {
+      toast.error('No se pudo conectar con el servicio de inventario')
+    } finally { setLoading(false) }
   }
 
   const stats = useMemo(() => {
@@ -50,15 +50,13 @@ export default function InventarioPage() {
     setEditandoId(null)
     setForm(FORM_VACIO)
     setShowForm(true)
-    setError(''); setSuccess('')
   }
 
   const abrirEditar = (i) => {
     setEditandoId(i.id)
     setForm({ productoId: i.productoId, nombre: i.nombre, stock: i.stock })
     setShowForm(true)
-    setError(''); setSuccess('')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    globalThis.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const cerrarForm = () => {
@@ -67,60 +65,89 @@ export default function InventarioPage() {
     setForm(FORM_VACIO)
   }
 
+  const validarForm = () => {
+    const pid = Number(form.productoId)
+    if (!form.productoId || Number.isNaN(pid) || pid < 1) {
+      toast.error('El ID de producto debe ser un número mayor a 0')
+      return false
+    }
+    if (!form.nombre.trim() || form.nombre.trim().length < 2) {
+      toast.error('El nombre del producto debe tener al menos 2 caracteres')
+      return false
+    }
+    const s = Number(form.stock)
+    if (form.stock === '' || Number.isNaN(s) || s < 0) {
+      toast.error('El stock debe ser un número mayor o igual a 0')
+      return false
+    }
+    return true
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setSaving(true); setError(''); setSuccess('')
+    if (!validarForm()) return
+    setSaving(true)
     const payload = {
       productoId: Number(form.productoId),
-      nombre:     form.nombre,
+      nombre:     form.nombre.trim(),
       stock:      Number(form.stock),
     }
     try {
       if (editandoId) {
         await inventarioApi.actualizar(editandoId, payload)
-        setSuccess('✅ Producto actualizado correctamente')
+        toast.success('Producto actualizado correctamente')
       } else {
         await inventarioApi.crear(payload)
-        setSuccess('✅ Producto creado correctamente')
+        toast.success('Producto creado correctamente')
       }
       cerrarForm()
       cargar()
     } catch (err) {
-      setError(err.response?.data?.message || err.response?.data?.error || 'Error al guardar el producto')
+      const msg = err.response?.data?.message || err.response?.data?.error || ''
+      if (err.response?.status === 409 || msg.toLowerCase().includes('duplicate') || msg.toLowerCase().includes('exist')) {
+        toast.error(`El ID de producto ${payload.productoId} ya existe en el inventario. Usa un ID diferente.`)
+      } else {
+        toast.error(msg || 'Error al guardar el producto')
+      }
     } finally { setSaving(false) }
   }
 
-  const handleEliminar = async (i) => {
-    if (!window.confirm(`¿Eliminar el producto "${i.nombre}" del inventario?`)) return
-    setError(''); setSuccess('')
-    try {
-      await inventarioApi.eliminar(i.id)
-      setSuccess('🗑️ Producto eliminado')
-      if (editandoId === i.id) cerrarForm()
-      cargar()
-    } catch (err) {
-      setError(err.response?.data?.message || 'No se pudo eliminar el producto')
-    }
+  const pedirConfirmEliminar = (i) => {
+    setConfirm({
+      title: 'Eliminar producto',
+      message: `¿Estás seguro de que quieres eliminar "${i.nombre}" del inventario? Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar',
+      onConfirm: async () => {
+        setConfirm(null)
+        try {
+          await inventarioApi.eliminar(i.id)
+          toast.success('Producto eliminado')
+          if (editandoId === i.id) cerrarForm()
+          cargar()
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'No se pudo eliminar el producto')
+        }
+      },
+    })
   }
+
+  const accionLabel = editandoId ? 'Guardar cambios' : '+ Crear producto'
 
   return (
     <div className="page-wrapper">
       <Navbar />
-      <div className="page-content">
+      {confirm && <ConfirmModal {...confirm} onCancel={() => setConfirm(null)} />}
 
-        {/* Header */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1.5rem' }}>
+      <div className="page-content">
+        <div className="page-header">
           <div>
-            <h1 className="page-title">📦 Mantenedor de Inventario</h1>
+            <h1 className="page-title">Mantenedor de Inventario</h1>
             <p className="page-subtitle">Administra los productos y el stock disponible</p>
           </div>
           <button className="btn btn-primary" onClick={showForm ? cerrarForm : abrirCrear}>
             {showForm ? '✕ Cancelar' : '+ Nuevo producto'}
           </button>
         </div>
-
-        {error   && <div className="alert alert-error">{error}</div>}
-        {success && <div className="alert alert-success">{success}</div>}
 
         {/* Stats */}
         <div className="grid-3" style={{ marginBottom:'1.5rem' }}>
@@ -133,20 +160,20 @@ export default function InventarioPage() {
             <div className="stat-label">Unidades en stock</div>
           </div>
           <div className="stat-card">
-            <div className="stat-value" style={{ fontSize: '1.4rem' }}>
+            <div className="stat-value" style={{ fontSize:'1.3rem' }}>
               🟢 {stats.verde} · 🟡 {stats.amarillo} · 🔴 {stats.rojo}
             </div>
             <div className="stat-label">Semáforo de stock</div>
           </div>
         </div>
 
-        {/* Leyenda del semáforo */}
+        {/* Leyenda semáforo */}
         <div style={{
           display:'flex', gap:'1.25rem', flexWrap:'wrap', alignItems:'center',
-          background:'#F8F9FA', border:'1px solid var(--border)', borderRadius:8,
-          padding:'.5rem .9rem', marginBottom:'1.5rem', fontSize:'.85rem',
+          background:'var(--accent)', border:'1px solid var(--border)', borderRadius:8,
+          padding:'.5rem .9rem', marginBottom:'1.5rem', fontSize:'.78rem', color:'var(--text-lt)',
         }}>
-          <strong style={{ color:'var(--text-lt)' }}>Semáforo de stock:</strong>
+          <strong>Semáforo:</strong>
           <span>🟢 Bien (≥ {UMBRAL_VERDE})</span>
           <span>🟡 Medio ({UMBRAL_ROJO}–{UMBRAL_VERDE - 1})</span>
           <span>🔴 Bajo (&lt; {UMBRAL_ROJO})</span>
@@ -161,31 +188,31 @@ export default function InventarioPage() {
             <form onSubmit={handleSubmit}>
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">ID de producto</label>
-                  <input className="form-input" type="number" min={1} required
+                  <label className="form-label" htmlFor="productoId">ID de producto</label>
+                  <input id="productoId" className="form-input" type="number" min={1}
+                    placeholder="Ej: 101"
                     value={form.productoId}
                     onChange={e => setForm(f => ({ ...f, productoId: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Stock</label>
-                  <input className="form-input" type="number" min={0} required
+                  <label className="form-label" htmlFor="stock">Stock</label>
+                  <input id="stock" className="form-input" type="number" min={0}
+                    placeholder="Ej: 50"
                     value={form.stock}
                     onChange={e => setForm(f => ({ ...f, stock: e.target.value }))} />
                 </div>
               </div>
-
               <div className="form-group">
-                <label className="form-label">Nombre del producto</label>
-                <input className="form-input" required minLength={2}
-                  placeholder="Ej: Notebook Premium 15&quot;"
+                <label className="form-label" htmlFor="nombre">Nombre del producto</label>
+                <input id="nombre" className="form-input"
+                  placeholder='Ej: Notebook Premium 15"'
                   value={form.nombre}
                   onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
               </div>
-
               <div className="flex-end" style={{ gap:'.75rem' }}>
                 <button type="button" className="btn btn-outline" onClick={cerrarForm}>Cancelar</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Guardando...' : (editandoId ? '💾 Guardar cambios' : '+ Crear producto')}
+                  {saving ? 'Guardando...' : accionLabel}
                 </button>
               </div>
             </form>
@@ -197,47 +224,43 @@ export default function InventarioPage() {
           <div className="card-header">
             <span className="card-title">Productos en inventario</span>
             <button className="btn btn-outline" onClick={cargar}
-              style={{ padding:'.4rem .8rem', fontSize:'.85rem' }}>
-              🔄 Actualizar
+              style={{ padding:'.4rem .8rem', fontSize:'.8rem' }}>
+              Actualizar
             </button>
           </div>
-          {loading ? (
-            <div className="loading">Cargando inventario...</div>
-          ) : items.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'2rem', color:'var(--text-lt)' }}>
+          {loading && <div className="loading">Cargando inventario...</div>}
+          {!loading && items.length === 0 && (
+            <div style={{ textAlign:'center', padding:'3rem', color:'var(--text-lt)' }}>
               No hay productos en el inventario.
             </div>
-          ) : (
+          )}
+          {!loading && items.length > 0 && (
             <div className="table-wrapper">
               <table>
                 <thead>
                   <tr>
-                    <th>ID</th><th>Producto ID</th><th>Nombre</th><th>Stock</th><th>Semáforo</th><th>Acciones</th>
+                    <th>ID</th><th>Producto ID</th><th>Nombre</th><th>Stock</th><th>Estado</th><th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map(i => {
                     const sem = semaforoStock(i.stock)
                     return (
-                    <tr key={i.id}>
-                      <td><span className="badge badge-blue">{i.id}</span></td>
-                      <td><span className="badge badge-gold">{i.productoId}</span></td>
-                      <td><strong>{i.nombre}</strong></td>
-                      <td>
-                        <span className={`badge ${sem.badge}`}>{i.stock}</span>
-                      </td>
-                      <td>
-                        <span className={`badge ${sem.badge}`}>{sem.emoji} {sem.label}</span>
-                      </td>
-                      <td>
-                        <div style={{ display:'flex', gap:'.4rem' }}>
-                          <button className="btn btn-outline" onClick={() => abrirEditar(i)}
-                            style={{ padding:'.3rem .7rem', fontSize:'.8rem' }}>✏️ Editar</button>
-                          <button className="btn btn-danger" onClick={() => handleEliminar(i)}
-                            style={{ padding:'.3rem .7rem', fontSize:'.8rem' }}>🗑️</button>
-                        </div>
-                      </td>
-                    </tr>
+                      <tr key={i.id}>
+                        <td><span className="badge badge-blue">{i.id}</span></td>
+                        <td><span className="badge badge-gold">{i.productoId}</span></td>
+                        <td><strong>{i.nombre}</strong></td>
+                        <td><span className={`badge ${sem.badge}`}>{i.stock}</span></td>
+                        <td><span className={`badge ${sem.badge}`}>{sem.emoji} {sem.label}</span></td>
+                        <td>
+                          <div style={{ display:'flex', gap:'.4rem' }}>
+                            <button className="btn btn-outline" onClick={() => abrirEditar(i)}
+                              style={{ padding:'.3rem .7rem', fontSize:'.78rem' }}>Editar</button>
+                            <button className="btn btn-danger" onClick={() => pedirConfirmEliminar(i)}
+                              style={{ padding:'.3rem .7rem', fontSize:'.78rem' }}>Eliminar</button>
+                          </div>
+                        </td>
+                      </tr>
                     )
                   })}
                 </tbody>
@@ -245,7 +268,6 @@ export default function InventarioPage() {
             </div>
           )}
         </div>
-
       </div>
       <footer><p>© 2026 Grupo Cordillera</p></footer>
     </div>

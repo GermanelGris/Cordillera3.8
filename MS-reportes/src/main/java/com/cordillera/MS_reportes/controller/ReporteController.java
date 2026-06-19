@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/reportes")
@@ -41,6 +42,17 @@ public class ReporteController {
     @GetMapping("/tipo/{tipo}")
     public ResponseEntity<List<ReporteResponse>> listarPorTipo(@PathVariable String tipo) {
         return ResponseEntity.ok(reporteService.listarPorTipo(tipo));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ReporteResponse> actualizar(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(reporteService.actualizar(id, body.get("titulo")));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        reporteService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/health")

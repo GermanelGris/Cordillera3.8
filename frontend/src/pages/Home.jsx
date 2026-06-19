@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import { useAuth } from '../context/AuthContext'
 import '../styles/home.css'
@@ -13,20 +13,28 @@ const PRODUCTOS = [
 ]
 
 const CATEGORIAS = [
-  { nombre: 'Tecnología', icon: '💻', color: '#1B4F72' },
-  { nombre: 'Accesorios', icon: '🖱️', color: '#D4AC0D' },
-  { nombre: 'Audio',      icon: '🎧', color: '#1E8449' },
-  { nombre: 'Oficina',    icon: '📁', color: '#8E44AD' },
+  { nombre: 'Tecnología', icon: '💻' },
+  { nombre: 'Accesorios', icon: '🖱️' },
+  { nombre: 'Audio',      icon: '🎧' },
+  { nombre: 'Oficina',    icon: '📁' },
 ]
 
 export default function Home() {
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   const getDashboardLink = () => {
     if (!user) return '/login'
     if (user.rol === 'ADMIN')    return '/admin/kpi'
     if (user.rol === 'VENDEDOR') return '/vendedor/pos'
     return '/tienda'
+  }
+
+  const dashboardLabel = () => {
+    if (!user) return ''
+    if (user.rol === 'ADMIN')    return '📊 Ir al Dashboard'
+    if (user.rol === 'VENDEDOR') return '🏪 Ir al POS'
+    return '🛒 Mi cuenta'
   }
 
   return (
@@ -50,8 +58,7 @@ export default function Home() {
             )}
             {user && (
               <Link to={getDashboardLink()} className="btn btn-outline-hero">
-                {user.rol === 'ADMIN' ? '📊 Ir al Dashboard' :
-                 user.rol === 'VENDEDOR' ? '🏪 Ir al POS' : '🛒 Mi cuenta'}
+                {dashboardLabel()}
               </Link>
             )}
           </div>
@@ -77,10 +84,11 @@ export default function Home() {
           <h2 className="section-title">Categorías</h2>
           <div className="cat-grid">
             {CATEGORIAS.map(cat => (
-              <div key={cat.nombre} className="cat-card" style={{ borderColor: cat.color }}>
-                <span className="cat-icon" style={{ background: cat.color + '18' }}>{cat.icon}</span>
+              <button key={cat.nombre} type="button" className="cat-card"
+                onClick={() => navigate(`/tienda?cat=${encodeURIComponent(cat.nombre)}`)}>
+                <span className="cat-icon">{cat.icon}</span>
                 <span className="cat-name">{cat.nombre}</span>
-              </div>
+              </button>
             ))}
           </div>
         </div>

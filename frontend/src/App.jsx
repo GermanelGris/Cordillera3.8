@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { ToastProvider } from './context/ToastContext'
 import ProtectedRoute from './components/ProtectedRoute'
 
 import Home from './pages/Home'
@@ -16,6 +17,7 @@ import Unauthorized from './pages/Unauthorized'
 export default function App() {
   return (
     <AuthProvider>
+      <ToastProvider>
       <Routes>
         {/* Públicas */}
         <Route path="/"         element={<Home />} />
@@ -61,6 +63,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </ToastProvider>
     </AuthProvider>
   )
 }
