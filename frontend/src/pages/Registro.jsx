@@ -1,24 +1,43 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function Registro() {
   const { registro } = useAuth()
+  const { toast } = useToast()
   const navigate = useNavigate()
-  const [form, setForm]       = useState({ nombre: '', email: '', password: '' })
-  const [error, setError]     = useState('')
-  const [success, setSuccess] = useState('')
+  const [form, setForm]     = useState({ nombre: '', email: '', password: '' })
   const [loading, setLoading] = useState(false)
+
+  const validar = () => {
+    if (!form.nombre.trim() || form.nombre.trim().length < 2) {
+      toast.error('El nombre debe tener al menos 2 caracteres')
+      return false
+    }
+    if (!EMAIL_RE.test(form.email.trim())) {
+      toast.error('Ingresa un email válido')
+      return false
+    }
+    if (form.password.length < 6) {
+      toast.error('La contraseña debe tener al menos 6 caracteres')
+      return false
+    }
+    return true
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError(''); setLoading(true)
+    if (!validar()) return
+    setLoading(true)
     try {
       await registro({ ...form, rol: 'USUARIO' })
-      setSuccess('¡Cuenta creada exitosamente! Redirigiendo al login...')
+      toast.success('¡Cuenta creada! Redirigiendo al login...')
       setTimeout(() => navigate('/login'), 1800)
     } catch (err) {
-      setError(err.response?.data?.message || 'Error al crear la cuenta. Intenta con otro email.')
+      toast.error(err.response?.data?.message || 'Error al crear la cuenta. Intenta con otro email.')
     } finally {
       setLoading(false)
     }
@@ -26,33 +45,30 @@ export default function Registro() {
 
   return (
     <div style={{ minHeight:'100vh', background:'var(--bg)', display:'flex', alignItems:'center', justifyContent:'center', padding:'2rem' }}>
-      <div style={{ background:'#fff', borderRadius:16, padding:'2.5rem', boxShadow:'0 8px 40px rgba(0,0,0,0.12)', width:'100%', maxWidth:460 }}>
+      <div style={{ background:'#fff', borderRadius:16, padding:'2.5rem', border:'1px solid var(--border)', width:'100%', maxWidth:460 }}>
         <div style={{ textAlign:'center', marginBottom:'1.5rem' }}>
           <div style={{ fontSize:'2.5rem' }}>⛰️</div>
           <h2 style={{ fontSize:'1.6rem', fontWeight:800, color:'var(--primary)' }}>Crear cuenta</h2>
           <p style={{ color:'var(--text-lt)', fontSize:'.95rem' }}>Únete a Grupo Cordillera</p>
         </div>
 
-        {error   && <div className="alert alert-error">{error}</div>}
-        {success && <div className="alert alert-success">{success}</div>}
-
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Nombre completo</label>
-            <input className="form-input" placeholder="Ej: Juan Pérez"
-              value={form.nombre} required minLength={2}
+            <label className="form-label" htmlFor="reg-nombre">Nombre completo</label>
+            <input id="reg-nombre" className="form-input" placeholder="Ej: Juan Pérez"
+              value={form.nombre}
               onChange={e => setForm({...form, nombre: e.target.value})} />
           </div>
           <div className="form-group">
-            <label className="form-label">Email</label>
-            <input type="email" className="form-input" placeholder="tu@email.com"
-              value={form.email} required
+            <label className="form-label" htmlFor="reg-email">Email</label>
+            <input id="reg-email" type="email" className="form-input" placeholder="tu@email.com"
+              value={form.email}
               onChange={e => setForm({...form, email: e.target.value})} />
           </div>
           <div className="form-group">
-            <label className="form-label">Contraseña</label>
-            <input type="password" className="form-input" placeholder="Mínimo 6 caracteres"
-              value={form.password} required minLength={6}
+            <label className="form-label" htmlFor="reg-password">Contraseña</label>
+            <input id="reg-password" type="password" className="form-input" placeholder="Mínimo 6 caracteres"
+              value={form.password}
               onChange={e => setForm({...form, password: e.target.value})} />
           </div>
           <button type="submit" className="btn btn-primary" style={{ width:'100%' }} disabled={loading}>
@@ -60,7 +76,7 @@ export default function Registro() {
           </button>
         </form>
 
-        <div style={{ background:'#EBF5FB', borderRadius:8, padding:'.75rem 1rem', marginTop:'1rem', fontSize:'.85rem', color:'var(--primary)' }}>
+        <div style={{ background:'var(--accent)', borderRadius:8, padding:'.75rem 1rem', marginTop:'1rem', fontSize:'.85rem', color:'var(--primary)', border:'1px solid var(--border)' }}>
           ℹ️ Las cuentas creadas aquí son de tipo <strong>Cliente</strong> con acceso a la tienda online.
         </div>
 

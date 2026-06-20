@@ -21,16 +21,20 @@ api.interceptors.response.use(
 )
 
 export const kpiApi = {
-  listar: ()         => api.get('/kpi', { params: { _t: Date.now() } }),
-  listarPorPeriodo:  (p) => api.get(`/kpi/periodo/${p}`),
-  calcular: (data)   => api.post('/kpi/calcular', data),
+  listar: ()              => api.get('/kpi', { params: { _t: Date.now() } }),
+  listarPorPeriodo: (p)   => api.get(`/kpi/periodo/${p}`),
+  calcular: (data)        => api.post('/kpi/calcular', data),
   calcularDesdeDatos: (params) => api.post('/kpi/calcular-desde-datos', null, { params }),
+  actualizar: (id, data)  => api.put(`/kpi/${id}`, data),
+  eliminar: (id)          => api.delete(`/kpi/${id}`),
 }
 
 export const reportesApi = {
   listar:           ()    => api.get('/reportes'),
   listarPorPeriodo: (p)   => api.get(`/reportes/periodo/${p}`),
   generar: (data)         => api.post('/reportes', data),
+  actualizar: (id, data)  => api.put(`/reportes/${id}`, data),
+  eliminar: (id)          => api.delete(`/reportes/${id}`),
 }
 
 export const datosApi = {

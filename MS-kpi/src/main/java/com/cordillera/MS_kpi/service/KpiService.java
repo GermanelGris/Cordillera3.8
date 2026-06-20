@@ -88,6 +88,23 @@ public class KpiService {
         return kpiRepository.findByTipoCalculo(tipoCalculo.toUpperCase()).stream().map(this::toResponse).toList();
     }
 
+    @Transactional
+    public KpiResponse actualizar(Long id, String nombre, String descripcion) {
+        Kpi kpi = kpiRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("KPI no encontrado con id: " + id));
+        if (nombre != null && !nombre.isBlank()) kpi.setNombre(nombre);
+        kpi.setDescripcion(descripcion);
+        return toResponse(kpiRepository.save(kpi));
+    }
+
+    @Transactional
+    public void eliminar(Long id) {
+        if (!kpiRepository.existsById(id)) {
+            throw new RuntimeException("KPI no encontrado con id: " + id);
+        }
+        kpiRepository.deleteById(id);
+    }
+
     private KpiResponse toResponse(Kpi k) {
         return KpiResponse.builder()
                 .id(k.getId())

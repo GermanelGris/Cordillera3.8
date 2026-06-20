@@ -1,128 +1,163 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 
 export default function Login() {
   const { login } = useAuth()
+  const { toast } = useToast()
   const navigate = useNavigate()
   const [form, setForm]       = useState({ email: '', password: '' })
-  const [error, setError]     = useState('')
   const [loading, setLoading] = useState(false)
+
+  const validar = () => {
+    if (!form.email.trim()) { toast.error('Ingresa tu email'); return false }
+    if (!form.password)     { toast.error('Ingresa tu contraseña'); return false }
+    return true
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError(''); setLoading(true)
+    if (!validar()) return
+    setLoading(true)
     try {
       const rol = await login(form.email, form.password)
-      if (rol === 'ADMIN')    navigate('/admin/kpi')
+      if (rol === 'ADMIN')         navigate('/admin/kpi')
       else if (rol === 'VENDEDOR') navigate('/vendedor/pos')
-      else navigate('/tienda')
+      else                         navigate('/tienda')
     } catch {
-      setError('Email o contraseña incorrectos')
+      toast.error('Email o contraseña incorrectos')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="auth-layout">
-      <div className="auth-left">
-        <div className="auth-brand">
-          <span style={{ fontSize: '3rem' }}>⛰️</span>
-          <h1>Grupo Cordillera</h1>
-          <p>Sistema integrado de gestión empresarial</p>
+    <div className="login-wrapper">
+
+      {/* Panel izquierdo */}
+      <div className="login-panel-left">
+        <div style={{ marginBottom:'3rem' }}>
+          <span style={{ fontSize:'2.5rem' }}>⛰️</span>
+          <h1 style={{ fontSize:'1.75rem', fontWeight:700, margin:'.5rem 0 .4rem', letterSpacing:'-0.02em' }}>
+            Grupo Cordillera
+          </h1>
+          <p style={{ color:'rgba(255,255,255,0.45)', fontSize:'.9rem' }}>
+            Sistema integrado de gestión empresarial
+          </p>
         </div>
-        <div className="auth-features">
-          <div className="auth-feature"><span>📊</span><span>Dashboard KPI en tiempo real</span></div>
-          <div className="auth-feature"><span>🏪</span><span>Punto de venta integrado</span></div>
-          <div className="auth-feature"><span>📋</span><span>Reportes automáticos</span></div>
-          <div className="auth-feature"><span>🛒</span><span>E-commerce unificado</span></div>
+        <div style={{ display:'flex', flexDirection:'column', gap:'.75rem' }}>
+          {[
+            { icon:'📊', text:'Dashboard KPI en tiempo real' },
+            { icon:'🏪', text:'Punto de venta integrado' },
+            { icon:'📋', text:'Reportes automáticos' },
+            { icon:'🛒', text:'E-commerce unificado' },
+          ].map(f => (
+            <div key={f.text} style={{
+              display:'flex', gap:'.9rem', alignItems:'center',
+              background:'rgba(255,255,255,0.05)', padding:'.75rem 1rem',
+              borderRadius:8, border:'1px solid rgba(255,255,255,0.08)',
+              fontSize:'.875rem', color:'rgba(255,255,255,0.75)',
+            }}>
+              <span>{f.icon}</span>
+              <span>{f.text}</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      <div className="auth-right">
-        <div className="auth-card">
-          <h2>Iniciar sesión</h2>
-          <p className="auth-sub">Bienvenido de vuelta</p>
-
-          {error && <div className="alert alert-error">{error}</div>}
+      {/* Panel derecho */}
+      <div className="login-panel-right">
+        <div style={{ width:'100%', maxWidth:400 }}>
+          <h2 style={{ fontSize:'1.4rem', fontWeight:700, color:'#111827', marginBottom:'.25rem', letterSpacing:'-0.02em' }}>
+            Iniciar sesión
+          </h2>
+          <p style={{ color:'#6B7280', marginBottom:'2rem', fontSize:'.875rem' }}>
+            Bienvenido de vuelta
+          </p>
 
           <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label className="form-label">Email</label>
-              <input type="email" className="form-input" placeholder="tu@cordillera.cl"
+            <div style={{ marginBottom:'1rem' }}>
+              <label htmlFor="email" style={{ display:'block', fontWeight:600, marginBottom:'.4rem', fontSize:'.72rem', color:'#6B7280', textTransform:'uppercase', letterSpacing:'0.07em' }}>
+                Email
+              </label>
+              <input id="email" type="email" className="form-input"
+                placeholder="tu@cordillera.cl"
                 value={form.email}
-                onChange={e => setForm({...form, email: e.target.value})}
-                required />
+                onChange={e => setForm({...form, email: e.target.value})} />
             </div>
-            <div className="form-group">
-              <label className="form-label">Contraseña</label>
-              <input type="password" className="form-input" placeholder="Ingresa tu contraseña"
+            <div style={{ marginBottom:'1.5rem' }}>
+              <label htmlFor="password" style={{ display:'block', fontWeight:600, marginBottom:'.4rem', fontSize:'.72rem', color:'#6B7280', textTransform:'uppercase', letterSpacing:'0.07em' }}>
+                Contraseña
+              </label>
+              <input id="password" type="password" className="form-input"
+                placeholder="Ingresa tu contraseña"
                 value={form.password}
-                onChange={e => setForm({...form, password: e.target.value})}
-                required />
+                onChange={e => setForm({...form, password: e.target.value})} />
             </div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
+            <button type="submit" className="btn btn-primary"
+              style={{ width:'100%', justifyContent:'center', padding:'.7rem' }}
+              disabled={loading}>
               {loading ? 'Ingresando...' : 'Iniciar sesión'}
             </button>
           </form>
 
-          <div className="auth-divider"><span>usuarios de prueba</span></div>
-          <div className="auth-hints">
-            <div className="hint-chip hint-admin"
-              onClick={() => setForm({ email: 'admin@cordillera.cl', password: 'Admin123!' })}>
-              👑 admin@cordillera.cl / Admin123!
-            </div>
-            <div className="hint-chip hint-vendedor"
-              onClick={() => setForm({ email: 'vendedor1@cordillera.cl', password: 'Admin123!' })}>
-              🏷️ vendedor1@cordillera.cl / Admin123!
-            </div>
-            <div className="hint-chip hint-usuario"
-              onClick={() => setForm({ email: 'cliente1@cordillera.cl', password: 'Admin123!' })}>
-              👤 cliente1@cordillera.cl / Admin123!
-            </div>
+          <div style={{ display:'flex', alignItems:'center', gap:'1rem', margin:'1.5rem 0 1rem' }}>
+            <div style={{ flex:1, height:1, background:'#E5E7EB' }} />
+            <span style={{ fontSize:'.72rem', color:'#9CA3AF', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+              Usuarios de prueba
+            </span>
+            <div style={{ flex:1, height:1, background:'#E5E7EB' }} />
           </div>
 
-          <p className="auth-footer">
-            ¿No tienes cuenta? <Link to="/registro">Regístrate aquí</Link>
+          <div style={{ display:'flex', flexDirection:'column', gap:'.4rem', marginBottom:'1.25rem' }}>
+            {[
+              { label:'👑 Admin', email:'admin@cordillera.cl',      clave:'Admin123!' },
+              { label:'🏷️ Vendedor', email:'vendedor1@cordillera.cl', clave:'Admin123!' },
+              { label:'👤 Cliente',  email:'cliente1@cordillera.cl',  clave:'Admin123!' },
+            ].map(h => (
+              <button key={h.email} type="button"
+                onClick={() => setForm({ email: h.email, password: h.clave })}
+                style={{
+                  padding:'.5rem .9rem', borderRadius:6, fontSize:'.82rem',
+                  fontWeight:600, cursor:'pointer', transition:'all .15s',
+                  background:'#F9FAFB', border:'1px solid #E5E7EB',
+                  color:'#374151', textAlign:'left', font:'inherit',
+                }}>
+                {h.label} — {h.email}
+              </button>
+            ))}
+          </div>
+
+          <p style={{ textAlign:'center', fontSize:'.85rem', color:'#9CA3AF' }}>
+            ¿No tienes cuenta?{' '}
+            <Link to="/registro" style={{ color:'#111827', fontWeight:600, textDecoration:'none' }}>
+              Regístrate aquí
+            </Link>
           </p>
-          <p className="auth-footer">
-            <Link to="/">← Volver al inicio</Link>
+          <p style={{ textAlign:'center', fontSize:'.85rem', color:'#9CA3AF', marginTop:'.5rem' }}>
+            <Link to="/" style={{ color:'#111827', fontWeight:600, textDecoration:'none' }}>
+              ← Volver al inicio
+            </Link>
           </p>
         </div>
       </div>
 
       <style>{`
-        .auth-layout { display:flex; min-height:100vh; }
-        .auth-left { flex:1; background:linear-gradient(135deg,#154360 0%,#1B4F72 100%);
-          color:#fff; display:flex; flex-direction:column; justify-content:center; padding:3rem; }
-        .auth-brand { margin-bottom:3rem; }
-        .auth-brand h1 { font-size:2rem; font-weight:900; margin:.5rem 0 .5rem; }
-        .auth-brand p  { color:rgba(255,255,255,0.75); font-size:1rem; }
-        .auth-features { display:flex; flex-direction:column; gap:1.2rem; }
-        .auth-feature { display:flex; gap:1rem; align-items:center; font-size:1rem;
-          background:rgba(255,255,255,0.08); padding:.85rem 1rem; border-radius:10px; }
-        .auth-right { flex:1; display:flex; align-items:center; justify-content:center;
-          background:var(--bg); padding:2rem; }
-        .auth-card { background:#fff; border-radius:16px; padding:2.5rem;
-          box-shadow:0 8px 40px rgba(0,0,0,0.12); width:100%; max-width:420px; }
-        .auth-card h2 { font-size:1.6rem; font-weight:800; color:var(--primary); margin-bottom:.25rem; }
-        .auth-sub { color:var(--text-lt); margin-bottom:1.5rem; }
-        .auth-divider { text-align:center; margin:1.5rem 0 .75rem; position:relative; }
-        .auth-divider::before { content:''; position:absolute; top:50%; left:0; right:0;
-          height:1px; background:var(--border); }
-        .auth-divider span { background:#fff; padding:0 .75rem; position:relative;
-          font-size:.8rem; color:var(--text-lt); }
-        .auth-hints { display:flex; flex-direction:column; gap:.5rem; margin-bottom:1rem; }
-        .hint-chip { padding:.5rem .9rem; border-radius:8px; font-size:.82rem; font-weight:600;
-          cursor:pointer; transition:all .15s; border:1.5px solid transparent; }
-        .hint-admin    { background:#D6EAF8; color:var(--primary); }
-        .hint-vendedor { background:#FEF9E7; color:#9A7D0A; }
-        .hint-usuario  { background:#D5F5E3; color:var(--green); }
-        .hint-chip:hover { transform:translateX(4px); filter:brightness(.95); }
-        .auth-footer { text-align:center; font-size:.88rem; color:var(--text-lt); margin-top:.75rem; }
-        .auth-footer a { color:var(--primary); font-weight:600; text-decoration:none; }
-        @media(max-width:768px){ .auth-left{ display:none; } }
+        .login-wrapper { display: flex; min-height: 100vh; }
+        .login-panel-left {
+          flex: 1; background: #111827; color: #fff;
+          display: flex; flex-direction: column; justify-content: center; padding: 3rem;
+        }
+        .login-panel-right {
+          flex: 1; display: flex; align-items: center; justify-content: center;
+          background: #fff; padding: 2rem;
+        }
+        @media (max-width: 768px) {
+          .login-wrapper { flex-direction: column; }
+          .login-panel-left { display: none; }
+          .login-panel-right { flex: unset; min-height: 100vh; padding: 2rem 1.25rem; align-items: flex-start; padding-top: 3rem; }
+        }
       `}</style>
     </div>
   )

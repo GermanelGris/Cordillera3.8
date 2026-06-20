@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/kpi")
@@ -51,6 +52,17 @@ public class KpiController {
     @GetMapping("/tipo/{tipoCalculo}")
     public ResponseEntity<List<KpiResponse>> listarPorTipo(@PathVariable String tipoCalculo) {
         return ResponseEntity.ok(kpiService.listarPorTipo(tipoCalculo));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<KpiResponse> actualizar(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(kpiService.actualizar(id, body.get("nombre"), body.get("descripcion")));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        kpiService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/health")

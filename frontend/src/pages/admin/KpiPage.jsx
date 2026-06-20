@@ -1,36 +1,36 @@
 import { useState, useEffect, useMemo } from 'react'
 import Navbar from '../../components/Navbar'
+import ConfirmModal from '../../components/ConfirmModal'
 import { kpiApi, datosApi } from '../../api/apiClient'
+import { useToast } from '../../context/ToastContext'
 
 const TIPOS_CALCULO = ['PROMEDIO', 'SUMA', 'MAXIMO', 'MINIMO']
 
 export default function KpiPage() {
+  const { toast } = useToast()
   const [kpis, setKpis]       = useState([])
   const [datos, setDatos]     = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingDatos, setLoadingDatos] = useState(false)
-  const [error, setError]     = useState('')
-  const [success, setSuccess] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving]   = useState(false)
   const [filtro, setFiltro]   = useState('')
-
+  const [confirm, setConfirm] = useState(null)
+  const [editando, setEditando] = useState(null)
+  const [editForm, setEditForm] = useState({ nombre: '', descripcion: '' })
   const [form, setForm] = useState({
-    nombre: '', tipoCalculo: 'PROMEDIO', periodo: '', tipoDato: '', unidad: 'CLP', descripcion: ''
+    nombre: '', tipoCalculo: 'PROMEDIO', periodo: '', tipoDato: '', descripcion: ''
   })
 
   useEffect(() => { cargarKpis() }, [])
-
-  useEffect(() => {
-    if (showForm) cargarDatos()
-  }, [showForm])
+  useEffect(() => { if (showForm) cargarDatos() }, [showForm])
 
   const cargarKpis = async () => {
     try {
       setLoading(true)
       const res = await kpiApi.listar()
       setKpis(Array.isArray(res.data) ? res.data : [])
-    } catch { setError('No se pudo conectar con el servicio de KPIs') }
+    } catch { toast.error('No se pudo conectar con el servicio de KPIs') }
     finally { setLoading(false) }
   }
 
@@ -39,56 +39,50 @@ export default function KpiPage() {
       setLoadingDatos(true)
       const res = await datosApi.listar()
       setDatos(Array.isArray(res.data) ? res.data : [])
-    } catch { setError('No se pudieron cargar los datos del sistema') }
+    } catch { toast.error('No se pudieron cargar los datos del sistema') }
     finally { setLoadingDatos(false) }
   }
 
-  // Periodos únicos disponibles en MS-Data
   const periodosDisponibles = useMemo(() =>
-    [...new Set(datos.map(d => d.periodo))].sort().reverse(),
-    [datos]
-  )
+    [...new Set(datos.map(d => d.periodo))].sort((a, b) => b.localeCompare(a)), [datos])
 
-  // Tipos de dato disponibles para el periodo seleccionado
   const tiposDisponibles = useMemo(() => {
     if (!form.periodo) return []
-    return [...new Set(datos.filter(d => d.periodo === form.periodo).map(d => d.tipo))].sort()
+    return [...new Set(datos.filter(d => d.periodo === form.periodo).map(d => d.tipo))].sort((a, b) => a.localeCompare(b))
   }, [datos, form.periodo])
 
-  // Valores concretos que se usarán para el cálculo (preview)
   const valoresPreview = useMemo(() => {
     if (!form.periodo || !form.tipoDato) return []
     return datos.filter(d => d.periodo === form.periodo && d.tipo === form.tipoDato)
   }, [datos, form.periodo, form.tipoDato])
 
-  // Resultado estimado del cálculo
   const resultadoEstimado = useMemo(() => {
     if (!valoresPreview.length) return null
     const vals = valoresPreview.map(d => d.valor)
-    switch (form.tipoCalculo) {
-      case 'PROMEDIO': return vals.reduce((a, b) => a + b, 0) / vals.length
-      case 'SUMA':     return vals.reduce((a, b) => a + b, 0)
-      case 'MAXIMO':   return Math.max(...vals)
-      case 'MINIMO':   return Math.min(...vals)
-      default:         return null
-    }
+    if (form.tipoCalculo === 'PROMEDIO') return vals.reduce((a, b) => a + b, 0) / vals.length
+    if (form.tipoCalculo === 'SUMA')     return vals.reduce((a, b) => a + b, 0)
+    if (form.tipoCalculo === 'MAXIMO')   return Math.max(...vals)
+    if (form.tipoCalculo === 'MINIMO')   return Math.min(...vals)
+    return null
   }, [valoresPreview, form.tipoCalculo])
 
-  const handlePeriodoChange = (periodo) => {
-    setForm(f => ({ ...f, periodo, tipoDato: '' }))
+  const handlePeriodoChange = (periodo) => setForm(f => ({ ...f, periodo, tipoDato: '' }))
+
+  const validarNuevoKpi = () => {
+    if (!form.nombre.trim()) { toast.error('El nombre del KPI es obligatorio'); return false }
+    if (!form.periodo)       { toast.error('Selecciona un periodo'); return false }
+    if (!form.tipoDato)      { toast.error('Selecciona un tipo de dato'); return false }
+    if (!valoresPreview.length) {
+      toast.error('No hay datos disponibles para el periodo y tipo seleccionados')
+      return false
+    }
+    return true
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.periodo || !form.tipoDato) {
-      setError('Selecciona un periodo y tipo de dato')
-      return
-    }
-    if (!valoresPreview.length) {
-      setError('No hay datos disponibles para el periodo y tipo seleccionados')
-      return
-    }
-    setSaving(true); setError(''); setSuccess('')
+    if (!validarNuevoKpi()) return
+    setSaving(true)
     try {
       await kpiApi.calcularDesdeDatos({
         tipoCalculo: form.tipoCalculo,
@@ -96,36 +90,74 @@ export default function KpiPage() {
         periodo:     form.periodo,
         nombre:      form.nombre,
       })
-      setSuccess('✅ KPI calculado y guardado exitosamente')
+      toast.success('KPI calculado y guardado exitosamente')
       setShowForm(false)
-      setForm({ nombre: '', tipoCalculo: 'PROMEDIO', periodo: '', tipoDato: '', unidad: 'CLP', descripcion: '' })
+      setForm({ nombre: '', tipoCalculo: 'PROMEDIO', periodo: '', tipoDato: '', descripcion: '' })
       cargarKpis()
     } catch (err) {
-      setError(err.response?.data?.message || 'Error al calcular el KPI')
+      toast.error(err.response?.data?.message || 'Error al calcular el KPI')
     } finally { setSaving(false) }
   }
 
-  const periodos = [...new Set(kpis.map(k => k.periodo))].sort().reverse()
+  const abrirEditar = (k) => {
+    setEditando(k.id)
+    setEditForm({ nombre: k.nombre, descripcion: k.descripcion || '' })
+  }
+
+  const validarEdicion = () => {
+    if (!editForm.nombre.trim()) { toast.error('El nombre del KPI no puede estar vacío'); return false }
+    return true
+  }
+
+  const guardarEdicion = async () => {
+    if (!validarEdicion()) return
+    try {
+      await kpiApi.actualizar(editando, { nombre: editForm.nombre.trim(), descripcion: editForm.descripcion })
+      toast.success('KPI actualizado correctamente')
+      setEditando(null)
+      cargarKpis()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error al actualizar el KPI')
+    }
+  }
+
+  const pedirConfirmEliminar = (k) => {
+    setConfirm({
+      title: 'Eliminar KPI',
+      message: `¿Estás seguro de que quieres eliminar el KPI "${k.nombre}" del periodo ${k.periodo}? Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar',
+      onConfirm: async () => {
+        setConfirm(null)
+        try {
+          await kpiApi.eliminar(k.id)
+          toast.success('KPI eliminado')
+          if (editando === k.id) setEditando(null)
+          cargarKpis()
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'No se pudo eliminar el KPI')
+        }
+      },
+    })
+  }
+
+  const periodos = [...new Set(kpis.map(k => k.periodo))].sort((a, b) => b.localeCompare(a))
   const kpisFiltrados = filtro ? kpis.filter(k => k.periodo === filtro) : kpis
 
   return (
     <div className="page-wrapper">
       <Navbar />
-      <div className="page-content">
+      {confirm && <ConfirmModal {...confirm} onCancel={() => setConfirm(null)} />}
 
-        {/* Header */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1.5rem' }}>
+      <div className="page-content">
+        <div className="page-header">
           <div>
-            <h1 className="page-title">📊 Gestión de KPIs</h1>
+            <h1 className="page-title">Gestión de KPIs</h1>
             <p className="page-subtitle">Calcula y visualiza indicadores clave de desempeño</p>
           </div>
           <button className="btn btn-primary" onClick={() => setShowForm(v => !v)}>
             {showForm ? '✕ Cancelar' : '+ Nuevo KPI'}
           </button>
         </div>
-
-        {error   && <div className="alert alert-error">{error}</div>}
-        {success && <div className="alert alert-success">{success}</div>}
 
         {/* Stats */}
         <div className="grid-3" style={{ marginBottom:'1.5rem' }}>
@@ -138,12 +170,12 @@ export default function KpiPage() {
             <div className="stat-label">Periodos</div>
           </div>
           <div className="stat-card">
-            <div className="stat-value" style={{ fontSize:'1.4rem' }}>{periodos[0] || '—'}</div>
+            <div className="stat-value" style={{ fontSize:'1.3rem' }}>{periodos[0] || '—'}</div>
             <div className="stat-label">Período más reciente</div>
           </div>
         </div>
 
-        {/* Formulario */}
+        {/* Formulario nuevo KPI */}
         {showForm && (
           <div className="card" style={{ marginBottom:'1.5rem' }}>
             <div className="card-header">
@@ -154,34 +186,32 @@ export default function KpiPage() {
               <div className="loading">Cargando datos disponibles...</div>
             ) : (
               <form onSubmit={handleSubmit}>
-
-                {/* Fila 1: Nombre y Tipo de cálculo */}
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Nombre del KPI</label>
-                    <input className="form-input" placeholder="Ej: Promedio de Ventas Mayo"
-                      value={form.nombre} required
+                    <label className="form-label" htmlFor="kpi-nombre">Nombre del KPI</label>
+                    <input id="kpi-nombre" className="form-input"
+                      placeholder="Ej: Promedio de Ventas Mayo"
+                      value={form.nombre}
                       onChange={e => setForm(f => ({...f, nombre: e.target.value}))} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Tipo de cálculo</label>
-                    <select className="form-select" value={form.tipoCalculo}
+                    <label className="form-label" htmlFor="kpi-tipo">Tipo de cálculo</label>
+                    <select id="kpi-tipo" className="form-select" value={form.tipoCalculo}
                       onChange={e => setForm(f => ({...f, tipoCalculo: e.target.value}))}>
                       {TIPOS_CALCULO.map(t => <option key={t}>{t}</option>)}
                     </select>
                   </div>
                 </div>
 
-                {/* Fila 2: Periodo y Tipo de dato */}
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Periodo</label>
+                    <label className="form-label" htmlFor="kpi-periodo">Periodo</label>
                     {periodosDisponibles.length === 0 ? (
-                      <div style={{ padding:'.6rem', background:'#FFF3CD', borderRadius:6, fontSize:'.85rem', color:'#856404' }}>
-                        ⚠️ No hay datos registrados en el sistema
+                      <div style={{ padding:'.65rem 1rem', background:'var(--accent)', border:'1px solid var(--border)', borderRadius:6, fontSize:'.85rem', color:'var(--text-lt)' }}>
+                        No hay datos registrados en el sistema
                       </div>
                     ) : (
-                      <select className="form-select" value={form.periodo} required
+                      <select id="kpi-periodo" className="form-select" value={form.periodo}
                         onChange={e => handlePeriodoChange(e.target.value)}>
                         <option value="">— Selecciona un periodo —</option>
                         {periodosDisponibles.map(p => <option key={p}>{p}</option>)}
@@ -189,8 +219,8 @@ export default function KpiPage() {
                     )}
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Tipo de dato</label>
-                    <select className="form-select" value={form.tipoDato} required
+                    <label className="form-label" htmlFor="kpi-tipo-dato">Tipo de dato</label>
+                    <select id="kpi-tipo-dato" className="form-select" value={form.tipoDato}
                       disabled={!form.periodo}
                       onChange={e => setForm(f => ({...f, tipoDato: e.target.value}))}>
                       <option value="">— Selecciona un tipo —</option>
@@ -199,37 +229,33 @@ export default function KpiPage() {
                   </div>
                 </div>
 
-                {/* Preview de valores */}
                 {valoresPreview.length > 0 && (
                   <div style={{
-                    background:'#F0F8FF', border:'1.5px solid #2980B9', borderRadius:10,
-                    padding:'1rem', marginBottom:'1rem'
+                    background:'var(--accent)', border:'1px solid var(--border)',
+                    borderRadius:8, padding:'1rem', marginBottom:'1rem'
                   }}>
-                    <div style={{ fontWeight:700, color:'#1B4F72', marginBottom:'.6rem', fontSize:'.9rem' }}>
-                      📋 Datos que se usarán para el cálculo
+                    <div style={{ fontWeight:700, color:'var(--text)', marginBottom:'.6rem', fontSize:'.8rem', textTransform:'uppercase', letterSpacing:'0.06em' }}>
+                      Datos para el cálculo
                     </div>
                     <div style={{ display:'flex', flexWrap:'wrap', gap:'.5rem', marginBottom:'.75rem' }}>
                       {valoresPreview.map(d => (
                         <div key={d.id} style={{
-                          background:'#fff', border:'1px solid #AED6F1', borderRadius:6,
-                          padding:'.35rem .7rem', fontSize:'.82rem'
+                          background:'#fff', border:'1px solid var(--border)',
+                          borderRadius:6, padding:'.35rem .7rem', fontSize:'.82rem'
                         }}>
-                          <span style={{ color:'#555' }}>{d.fuente}</span>
-                          <span style={{ fontWeight:700, color:'#1B4F72', marginLeft:'.5rem' }}>
+                          <span style={{ color:'var(--text-lt)' }}>{d.fuente}</span>
+                          <span style={{ fontWeight:700, color:'var(--text)', marginLeft:'.5rem' }}>
                             {d.valor?.toLocaleString('es-CL', { maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       ))}
                     </div>
-                    <div style={{ display:'flex', gap:'1.5rem', fontSize:'.85rem' }}>
-                      <span>
-                        <span style={{ color:'#555' }}>Valores:</span>
-                        <strong style={{ marginLeft:'.3rem' }}>{valoresPreview.length}</strong>
-                      </span>
+                    <div style={{ display:'flex', gap:'1.5rem', fontSize:'.82rem', color:'var(--text-lt)' }}>
+                      <span>Valores: <strong style={{ color:'var(--text)' }}>{valoresPreview.length}</strong></span>
                       {resultadoEstimado !== null && (
                         <span>
-                          <span style={{ color:'#555' }}>Resultado estimado ({form.tipoCalculo}):</span>
-                          <strong style={{ marginLeft:'.3rem', color:'#1B4F72', fontSize:'1rem' }}>
+                          Resultado estimado ({form.tipoCalculo}):
+                          <strong style={{ marginLeft:'.3rem', color:'var(--text)', fontSize:'.95rem' }}>
                             {resultadoEstimado.toLocaleString('es-CL', { maximumFractionDigits: 2 })}
                           </strong>
                         </span>
@@ -238,10 +264,11 @@ export default function KpiPage() {
                   </div>
                 )}
 
-                {/* Fila 3: Descripción */}
                 <div className="form-group">
-                  <label className="form-label">Descripción <span style={{ color:'var(--text-lt)', fontWeight:400 }}>(opcional)</span></label>
-                  <input className="form-input" placeholder="Descripción adicional del KPI"
+                  <label className="form-label" htmlFor="kpi-desc">
+                    Descripción <span style={{ color:'var(--text-xs)', fontWeight:400, textTransform:'none', letterSpacing:0 }}>(opcional)</span>
+                  </label>
+                  <input id="kpi-desc" className="form-input" placeholder="Descripción adicional del KPI"
                     value={form.descripcion}
                     onChange={e => setForm(f => ({...f, descripcion: e.target.value}))} />
                 </div>
@@ -249,7 +276,7 @@ export default function KpiPage() {
                 <div className="flex-end">
                   <button type="submit" className="btn btn-primary"
                     disabled={saving || !valoresPreview.length}>
-                    {saving ? 'Calculando...' : '📊 Calcular KPI'}
+                    {saving ? 'Calculando...' : 'Calcular KPI'}
                   </button>
                 </div>
               </form>
@@ -257,49 +284,80 @@ export default function KpiPage() {
           </div>
         )}
 
-        {/* Tabla de KPIs */}
+        {/* Tabla */}
         <div className="card">
           <div className="card-header">
             <span className="card-title">KPIs registrados</span>
             <div style={{ display:'flex', gap:'.75rem', alignItems:'center' }}>
               <select className="form-select"
-                style={{ width:'auto', padding:'.4rem .8rem', fontSize:'.9rem' }}
+                style={{ width:'auto', padding:'.4rem .8rem', fontSize:'.85rem' }}
                 value={filtro} onChange={e => setFiltro(e.target.value)}>
                 <option value="">Todos los periodos</option>
                 {periodos.map(p => <option key={p}>{p}</option>)}
               </select>
               <button className="btn btn-outline" onClick={cargarKpis}
-                style={{ padding:'.4rem .8rem', fontSize:'.85rem' }}>
-                🔄 Actualizar
+                style={{ padding:'.4rem .8rem', fontSize:'.8rem' }}>
+                Actualizar
               </button>
             </div>
           </div>
-          {loading ? (
-            <div className="loading">Cargando KPIs...</div>
-          ) : kpisFiltrados.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'2rem', color:'var(--text-lt)' }}>
+          {loading && <div className="loading">Cargando KPIs...</div>}
+          {!loading && kpisFiltrados.length === 0 && (
+            <div style={{ textAlign:'center', padding:'3rem', color:'var(--text-lt)' }}>
               No hay KPIs registrados. ¡Crea el primero!
             </div>
-          ) : (
+          )}
+          {!loading && kpisFiltrados.length > 0 && (
             <div className="table-wrapper">
               <table>
                 <thead>
                   <tr>
-                    <th>ID</th><th>Nombre</th><th>Tipo</th><th>Valor</th><th>Unidad</th><th>Periodo</th><th>Descripción</th>
+                    <th>ID</th><th>Nombre</th><th>Tipo</th><th>Valor</th><th>Periodo</th><th>Descripción</th><th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {kpisFiltrados.map(k => (
                     <tr key={k.id}>
                       <td><span className="badge badge-blue">{k.id}</span></td>
-                      <td><strong>{k.nombre}</strong></td>
+                      <td>
+                        {editando === k.id ? (
+                          <input className="form-input" style={{ padding:'.3rem .6rem', fontSize:'.85rem', minWidth:180 }}
+                            value={editForm.nombre}
+                            onChange={e => setEditForm(f => ({ ...f, nombre: e.target.value }))} />
+                        ) : (
+                          <strong>{k.nombre}</strong>
+                        )}
+                      </td>
                       <td><span className="badge badge-gold">{k.tipoCalculo}</span></td>
-                      <td><strong style={{ color:'var(--primary)' }}>
-                        {k.valor?.toLocaleString('es-CL', { maximumFractionDigits: 2 })}
-                      </strong></td>
-                      <td>{k.unidad}</td>
+                      <td><strong>{k.valor?.toLocaleString('es-CL', { maximumFractionDigits: 2 })}</strong></td>
                       <td><span className="badge badge-green">{k.periodo}</span></td>
-                      <td style={{ color:'var(--text-lt)', fontSize:'.85rem' }}>{k.descripcion || '—'}</td>
+                      <td style={{ color:'var(--text-lt)', fontSize:'.85rem' }}>
+                        {editando === k.id ? (
+                          <input className="form-input" style={{ padding:'.3rem .6rem', fontSize:'.85rem', minWidth:180 }}
+                            placeholder="Descripción (opcional)"
+                            value={editForm.descripcion}
+                            onChange={e => setEditForm(f => ({ ...f, descripcion: e.target.value }))} />
+                        ) : (
+                          k.descripcion || '—'
+                        )}
+                      </td>
+                      <td>
+                        {editando === k.id ? (
+                          <div style={{ display:'flex', gap:'.4rem' }}>
+                            <button className="btn btn-primary" onClick={guardarEdicion}
+                              style={{ padding:'.3rem .7rem', fontSize:'.78rem' }}>Guardar</button>
+                            <button className="btn btn-outline" onClick={() => setEditando(null)}
+                              style={{ padding:'.3rem .7rem', fontSize:'.78rem' }}>Cancelar</button>
+                          </div>
+                        ) : (
+                          <div style={{ display:'flex', gap:'.4rem' }}>
+                            <button className="btn btn-outline" onClick={() => abrirEditar(k)}
+                              style={{ padding:'.3rem .7rem', fontSize:'.78rem' }}>Editar</button>
+                            <button className="btn btn-danger" onClick={() => pedirConfirmEliminar(k)}
+                              style={{ padding:'.3rem .7rem', fontSize:'.78rem' }}>Eliminar</button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -307,7 +365,6 @@ export default function KpiPage() {
             </div>
           )}
         </div>
-
       </div>
       <footer><p>© 2026 Grupo Cordillera</p></footer>
     </div>

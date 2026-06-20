@@ -72,13 +72,16 @@ Una plataforma integral basada en microservicios construida con Spring Boot 3.3.
 
 ```bash
 # Iniciar todos los servicios (bases de datos, microservicios, frontend)
-docker-compose up -d
+docker-compose up --build
 
 # Ver registros
 docker-compose logs -f
 
 # Detener todos los servicios
+# Los datos se pierden si corres docker-compose down -v (con la flag -v que elimina volúmenes)  
 docker-compose down
+# limpiar todos los contenedores detenidos de una vez
+docker container prune -f
 ```
 
 ### Compilar desde el Código Fuente
