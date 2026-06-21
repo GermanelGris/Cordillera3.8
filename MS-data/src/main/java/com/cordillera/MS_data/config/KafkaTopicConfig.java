@@ -15,4 +15,20 @@ public class KafkaTopicConfig {
                 .replicas(1)
                 .build();
     }
+
+    @Bean
+    public NewTopic topicSolicitudReporte() {
+        return TopicBuilder.name("solicitud-reporte")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic topicReporteCorreo() {
+        return TopicBuilder.name("reporte-correo")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
 }

@@ -37,6 +37,39 @@ Una plataforma integral basada en microservicios construida con Spring Boot 3.3.
    - Funcionalidad de exportación de datos
    - Base de datos MySQL (ms_reportes, db_reportes)
 
+5. **MS-Reporte-Mail** (`MS-reporte-mail/`)
+   - Microservicio liviano (sin base de datos): su única función es publicar una
+     solicitud de reporte por Kafka (topic `solicitud-reporte`) hacia MS-Data.
+   - El mensaje lleva los datos del correo (`destinatario`, `asunto`, `cuerpo`) y el
+     `formato` deseado (`PDF` o `EXCEL`).
+   - MS-Data consume la solicitud, calcula estadísticas de stock (suma, promedio,
+     mediana, máximo, mínimo), genera el PDF/Excel y lo envía por correo como adjunto.
+   - Puerto: 8085
+
+   **Flujo:**
+   ```
+   POST /api/reportes-mail/solicitar  ──►  MS-Reporte-Mail
+            │  (Kafka: solicitud-reporte)
+            ▼
+         MS-Data  ──►  calcula stats de stock  ──►  genera PDF/Excel  ──►  envía correo (SMTP) con adjunto
+   ```
+
+   **Ejemplo de solicitud:**
+   ```bash
+   curl -X POST http://localhost:8085/reportes-mail/solicitar \
+     -H "Content-Type: application/json" \
+     -d '{
+       "destinatario": "cliente@ejemplo.com",
+       "asunto": "Reporte de Stock - Junio",
+       "cuerpo": "Adjunto el reporte solicitado.",
+       "formato": "PDF",
+       "periodo": "2026-06"
+     }'
+   ```
+
+   **Configuración SMTP** (variables de entorno en MS-Data): `MAIL_HOST`, `MAIL_PORT`,
+   `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`. Para Gmail usa una *App Password*.
+
 #### **Frontend** (`frontend/`)
 - Aplicación de página única (SPA) React + Vite
 - Gestión de estado con Context API
@@ -95,6 +128,7 @@ cd ../MS-login && ./mvnw clean package
 cd ../MS-data && ./mvnw clean package
 cd ../MS-kpi && ./mvnw clean package
 cd ../MS-reportes && ./mvnw clean package
+cd ../MS-reporte-mail && ./mvnw clean package
 ```
 
 #### Frontend
@@ -130,6 +164,7 @@ Cordillera3.8/
 ├── MS-data/              # Microservicio de gestión de datos
 ├── MS-kpi/               # Microservicio de seguimiento de KPI
 ├── MS-reportes/          # Microservicio de reportes
+├── MS-reporte-mail/      # Microservicio que solicita reportes por correo (Kafka)
 ├── frontend/             # Frontend React + Vite
 ├── sql/                  # Scripts de inicialización de base de datos
 ├── docker-compose.yml    # Archivo Docker Compose principal

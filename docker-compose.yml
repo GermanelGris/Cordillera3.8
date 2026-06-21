@@ -163,9 +163,32 @@ services:
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root123
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # SMTP para el envío de reportes por correo (define estas variables en tu entorno / .env)
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
     depends_on:
       mysql-data:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - cordillera-net
+
+  # ─── MS-REPORTE-MAIL ─────────────────────────────────────────────────────────
+  ms-reporte-mail:
+    build:
+      context: ./MS-reporte-mail
+      dockerfile: Dockerfile
+    container_name: ms-reporte-mail
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
       kafka:
         condition: service_healthy
     networks:

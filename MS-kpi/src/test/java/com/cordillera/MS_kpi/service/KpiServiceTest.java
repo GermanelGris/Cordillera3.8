@@ -7,6 +7,7 @@ import com.cordillera.MS_kpi.dto.KpiResponse;
 import com.cordillera.MS_kpi.entity.Kpi;
 import com.cordillera.MS_kpi.factory.KpiCalculatorCreator;
 import com.cordillera.MS_kpi.factory.KpiCalculatorRegistry;
+import com.cordillera.MS_kpi.kafka.KpiCorreoPublisher;
 import com.cordillera.MS_kpi.kafka.KpiEventPublisher;
 import com.cordillera.MS_kpi.repository.KpiRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +33,7 @@ class KpiServiceTest {
     @Mock KpiRepository         kpiRepository;
     @Mock KpiCalculatorRegistry calculatorRegistry;
     @Mock KpiEventPublisher     eventPublisher;
+    @Mock KpiCorreoPublisher    correoPublisher;
     @Mock DatoClient            datoClient;
 
     @InjectMocks KpiService kpiService;
@@ -115,7 +117,7 @@ class KpiServiceTest {
                 .thenReturn(new BigDecimal("150000"));
         when(kpiRepository.save(any(Kpi.class))).thenReturn(kpiGuardado);
 
-        KpiResponse response = kpiService.calcularDesdeDatos("SUMA", "VENTA", "2026-05", "Ventas Mayo");
+        KpiResponse response = kpiService.calcularDesdeDatos("SUMA", "VENTA", "2026-05", "Ventas Mayo", null);
 
         assertThat(response).isNotNull();
         verify(datoClient).listarPorPeriodo("2026-05");
@@ -128,7 +130,7 @@ class KpiServiceTest {
         when(datoClient.listarPorPeriodo("2026-05")).thenReturn(List.of(dato));
 
         assertThatThrownBy(() ->
-                kpiService.calcularDesdeDatos("SUMA", "VENTA", "2026-05", "Sin ventas"))
+                kpiService.calcularDesdeDatos("SUMA", "VENTA", "2026-05", "Sin ventas", null))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("No se encontraron datos de tipo 'VENTA'");
     }
@@ -138,7 +140,7 @@ class KpiServiceTest {
         when(datoClient.listarPorPeriodo("2026-05")).thenReturn(List.of());
 
         assertThatThrownBy(() ->
-                kpiService.calcularDesdeDatos("PROMEDIO", "VENTA", "2026-05", "Test"))
+                kpiService.calcularDesdeDatos("PROMEDIO", "VENTA", "2026-05", "Test", null))
                 .isInstanceOf(RuntimeException.class);
     }
 

@@ -5,6 +5,7 @@ import { kpiApi, datosApi } from '../../api/apiClient'
 import { useToast } from '../../context/ToastContext'
 
 const TIPOS_CALCULO = ['PROMEDIO', 'SUMA', 'MAXIMO', 'MINIMO']
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function KpiPage() {
   const { toast } = useToast()
@@ -19,7 +20,7 @@ export default function KpiPage() {
   const [editando, setEditando] = useState(null)
   const [editForm, setEditForm] = useState({ nombre: '', descripcion: '' })
   const [form, setForm] = useState({
-    nombre: '', tipoCalculo: 'PROMEDIO', periodo: '', tipoDato: '', descripcion: ''
+    nombre: '', tipoCalculo: 'PROMEDIO', periodo: '', tipoDato: '', descripcion: '', destinatario: ''
   })
 
   useEffect(() => { cargarKpis() }, [])
@@ -76,6 +77,10 @@ export default function KpiPage() {
       toast.error('No hay datos disponibles para el periodo y tipo seleccionados')
       return false
     }
+    if (form.destinatario.trim() && !EMAIL_RE.test(form.destinatario.trim())) {
+      toast.error('El correo destinatario no es válido')
+      return false
+    }
     return true
   }
 
@@ -84,15 +89,19 @@ export default function KpiPage() {
     if (!validarNuevoKpi()) return
     setSaving(true)
     try {
+      const destino = form.destinatario.trim()
       await kpiApi.calcularDesdeDatos({
         tipoCalculo: form.tipoCalculo,
         tipoDato:    form.tipoDato,
         periodo:     form.periodo,
         nombre:      form.nombre,
+        ...(destino ? { destinatario: destino } : {}),
       })
-      toast.success('KPI calculado y guardado exitosamente')
+      toast.success(destino
+        ? `KPI calculado. Se enviará a ${destino} (PDF, CSV y XLSX)`
+        : 'KPI calculado y guardado exitosamente')
       setShowForm(false)
-      setForm({ nombre: '', tipoCalculo: 'PROMEDIO', periodo: '', tipoDato: '', descripcion: '' })
+      setForm({ nombre: '', tipoCalculo: 'PROMEDIO', periodo: '', tipoDato: '', descripcion: '', destinatario: '' })
       cargarKpis()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Error al calcular el KPI')
@@ -271,6 +280,15 @@ export default function KpiPage() {
                   <input id="kpi-desc" className="form-input" placeholder="Descripción adicional del KPI"
                     value={form.descripcion}
                     onChange={e => setForm(f => ({...f, descripcion: e.target.value}))} />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="kpi-mail">
+                    Enviar por correo <span style={{ color:'var(--text-xs)', fontWeight:400, textTransform:'none', letterSpacing:0 }}>(opcional — adjunta PDF, CSV y XLSX)</span>
+                  </label>
+                  <input id="kpi-mail" type="email" className="form-input" placeholder="destinatario@ejemplo.com"
+                    value={form.destinatario}
+                    onChange={e => setForm(f => ({...f, destinatario: e.target.value}))} />
                 </div>
 
                 <div className="flex-end">

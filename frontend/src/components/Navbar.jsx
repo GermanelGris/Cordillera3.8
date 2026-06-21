@@ -23,6 +23,7 @@ export default function Navbar() {
         <Link to="/admin/inventario" className="nav-link" onClick={close}>📦 Inventario</Link>
         <Link to="/admin/kpi"        className="nav-link" onClick={close}>📊 KPIs</Link>
         <Link to="/admin/reportes"   className="nav-link" onClick={close}>📋 Reportes</Link>
+        <Link to="/admin/configuracion-correo" className="nav-link" onClick={close}>✉️ Correo</Link>
         <Link to="/tienda"           className="nav-link" onClick={close}>🛒 Tienda</Link>
       </>
     )

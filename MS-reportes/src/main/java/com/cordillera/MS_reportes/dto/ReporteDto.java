@@ -17,4 +17,7 @@ public class ReporteDto {
 
     private String generadoPor;
     private String descripcionAdicional;
+
+    /** Si se indica, el reporte generado se envía a este correo en PDF + CSV + XLSX. */
+    private String destinatario;
 }

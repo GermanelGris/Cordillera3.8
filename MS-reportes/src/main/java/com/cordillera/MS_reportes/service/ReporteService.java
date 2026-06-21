@@ -24,6 +24,7 @@ public class ReporteService {
     private final ReporteRepository reporteRepository;
     private final ReporteCreadorRegistry creadorRegistry;
     private final ReporteEventPublisher eventPublisher;
+    private final com.cordillera.MS_reportes.kafka.ReporteCorreoPublisher correoPublisher;
     private final KpiClient kpiClient;
     private final DatoClient datoClient;
 
@@ -41,6 +42,11 @@ public class ReporteService {
 
         reporte = reporteRepository.save(reporte);
         eventPublisher.publicarReporte(reporte);
+
+        // Envío asíncrono por correo (PDF + CSV + XLSX) si se indicó destinatario
+        if (dto.getDestinatario() != null && !dto.getDestinatario().isBlank()) {
+            correoPublisher.publicar(reporte, dto.getDestinatario().trim());
+        }
 
         return toResponse(reporte);
     }

@@ -23,6 +23,7 @@ public class KpiService {
     private final KpiRepository kpiRepository;
     private final KpiCalculatorRegistry calculatorRegistry;
     private final KpiEventPublisher eventPublisher;
+    private final com.cordillera.MS_kpi.kafka.KpiCorreoPublisher correoPublisher;
     private final DatoClient datoClient;
 
     @Transactional
@@ -45,11 +46,17 @@ public class KpiService {
         kpi = kpiRepository.save(kpi);
         eventPublisher.publicarKpi(kpi);
 
+        // Envío asíncrono por correo (PDF + CSV + XLSX) si se indicó destinatario
+        if (dto.getDestinatario() != null && !dto.getDestinatario().isBlank()) {
+            correoPublisher.publicar(kpi, dto.getDestinatario().trim());
+        }
+
         return toResponse(kpi);
     }
 
     @Transactional
-    public KpiResponse calcularDesdeDatos(String tipoCalculo, String tipoDato, String periodo, String nombre) {
+    public KpiResponse calcularDesdeDatos(String tipoCalculo, String tipoDato, String periodo, String nombre,
+                                          String destinatario) {
         List<DatoDto> datos = datoClient.listarPorPeriodo(periodo);
 
         List<BigDecimal> valores = datos.stream()
@@ -66,6 +73,7 @@ public class KpiService {
         dto.setTipoCalculo(tipoCalculo);
         dto.setValores(valores);
         dto.setPeriodo(periodo);
+        dto.setDestinatario(destinatario);
 
         return calcular(dto);
     }

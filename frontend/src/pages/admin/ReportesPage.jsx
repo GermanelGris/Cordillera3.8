@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 
 const PERIODO_RE = /^\d{4}-\d{2}$/
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const TIPOS = ['KPI', 'MENSUAL', 'RESUMEN']
 const TIPO_INFO = {
   KPI:     { icon: '📊', color: '#111827', desc: 'Indicadores de KPI del periodo' },
@@ -95,7 +96,7 @@ export default function ReportesPage() {
   const [confirm, setConfirm]   = useState(null)
   const [editandoId, setEditandoId] = useState(null)
   const [editTitulo, setEditTitulo] = useState('')
-  const [form, setForm] = useState({ tipo: 'RESUMEN', titulo: '', periodo: '', descripcionAdicional: '' })
+  const [form, setForm] = useState({ tipo: 'RESUMEN', titulo: '', periodo: '', descripcionAdicional: '', destinatario: '' })
 
   useEffect(() => { cargarReportes() }, [])
 
@@ -117,6 +118,10 @@ export default function ReportesPage() {
       toast.error('El periodo debe tener el formato YYYY-MM (ej: 2026-05)')
       return false
     }
+    if (form.destinatario.trim() && !EMAIL_RE.test(form.destinatario.trim())) {
+      toast.error('El correo destinatario no es válido')
+      return false
+    }
     return true
   }
 
@@ -125,10 +130,13 @@ export default function ReportesPage() {
     if (!validarForm()) return
     setSaving(true)
     try {
-      await reportesApi.generar({ ...form, generadoPor: user?.nombre })
-      toast.success('Reporte generado exitosamente')
+      const destino = form.destinatario.trim()
+      await reportesApi.generar({ ...form, destinatario: destino, generadoPor: user?.nombre })
+      toast.success(destino
+        ? `Reporte generado. Se enviará a ${destino} (PDF, CSV y XLSX)`
+        : 'Reporte generado exitosamente')
       setShowForm(false)
-      setForm({ tipo: 'RESUMEN', titulo: '', periodo: '', descripcionAdicional: '' })
+      setForm({ tipo: 'RESUMEN', titulo: '', periodo: '', descripcionAdicional: '', destinatario: '' })
       cargarReportes()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Error al generar el reporte')
@@ -247,6 +255,15 @@ export default function ReportesPage() {
                   placeholder="Comentarios o conclusiones adicionales..."
                   value={form.descripcionAdicional}
                   onChange={e => setForm({...form, descripcionAdicional: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="rep-mail">
+                  Enviar por correo <span style={{ fontWeight:400, color:'var(--text-lt)' }}>(opcional — adjunta PDF, CSV y XLSX)</span>
+                </label>
+                <input id="rep-mail" type="email" className="form-input"
+                  placeholder="destinatario@ejemplo.com"
+                  value={form.destinatario}
+                  onChange={e => setForm({...form, destinatario: e.target.value})} />
               </div>
               <div className="flex-end">
                 <button type="submit" className="btn btn-primary" disabled={saving}>

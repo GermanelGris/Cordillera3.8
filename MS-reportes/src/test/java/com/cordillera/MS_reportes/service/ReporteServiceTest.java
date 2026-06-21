@@ -33,6 +33,7 @@ class ReporteServiceTest {
     @Mock ReporteRepository      reporteRepository;
     @Mock ReporteCreadorRegistry creadorRegistry;
     @Mock ReporteEventPublisher  eventPublisher;
+    @Mock com.cordillera.MS_reportes.kafka.ReporteCorreoPublisher correoPublisher;
     @Mock KpiClient              kpiClient;
     @Mock DatoClient             datoClient;
 

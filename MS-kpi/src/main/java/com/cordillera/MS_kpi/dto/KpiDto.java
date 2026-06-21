@@ -24,4 +24,7 @@ public class KpiDto {
 
     private String unidad;
     private String descripcion;
+
+    /** Si se indica, el KPI calculado se envía a este correo en PDF + CSV + XLSX. */
+    private String destinatario;
 }

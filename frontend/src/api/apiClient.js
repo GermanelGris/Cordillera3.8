@@ -52,6 +52,12 @@ export const inventarioApi = {
   descontar: (productoId, cantidad)      => api.post('/inventario/descontar', { productoId, cantidad }),
 }
 
+export const mailConfigApi = {
+  obtener:    ()                  => api.get('/mail-config'),
+  guardar:    (data)             => api.put('/mail-config', data),
+  probar:     (destinatario)     => api.post('/mail-config/probar', null, { params: { destinatario } }),
+}
+
 export const usuariosApi = {
   listar:    ()         => api.get('/usuarios'),
   obtener:   (id)       => api.get(`/usuarios/${id}`),

@@ -29,9 +29,10 @@ public class KpiController {
             @RequestParam String tipoCalculo,
             @RequestParam String tipoDato,
             @RequestParam String periodo,
-            @RequestParam String nombre) {
+            @RequestParam String nombre,
+            @RequestParam(required = false) String destinatario) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(kpiService.calcularDesdeDatos(tipoCalculo, tipoDato, periodo, nombre));
+                .body(kpiService.calcularDesdeDatos(tipoCalculo, tipoDato, periodo, nombre, destinatario));
     }
 
     @GetMapping
