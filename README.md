@@ -191,24 +191,29 @@ Cada microservicio tiene configuración en `src/main/resources/`:
 - `application.properties` - Propiedades filtradas por Maven
 - `application.yaml` - Configuración YAML
 
-## Endpoints de API
+## Puertos de los Servicios
 
-### Autenticación (MS-Login)
-- `POST /api/auth/login` - Inicio de sesión de usuario
-- `POST /api/auth/register` - Registro de usuario
-- `POST /api/auth/refresh` - Renovar token JWT
+| Servicio      | Puerto | URL base                    |
+|---------------|--------|-----------------------------|
+| API Gateway   | 8080   | http://localhost:8080        |
+| MS-Login      | 8081   | http://localhost:8081        |
+| MS-Data       | 8082   | http://localhost:8082        |
+| MS-KPI        | 8083   | http://localhost:8083        |
+| MS-Reportes   | 8084   | http://localhost:8084        |
+| Frontend      | 80     | http://localhost             |
 
-### Servicio de Datos (MS-Data)
-- `GET /api/data/*` - Recuperar datos
-- `POST /api/data/*` - Crear datos
-- `PUT /api/data/*` - Actualizar datos
-- `DELETE /api/data/*` - Eliminar datos
 
-### Servicio de KPI (MS-KPI)
-- `GET /api/kpi/*` - Métricas y análisis de KPI
+#### Ver logs del consumer en tiempo real
+```bash
+docker logs ms-kpi --tail=30 -f
+```
 
-### Servicio de Reportes (MS-Reportes)
-- `GET /api/reports/*` - Generar y recuperar reportes
+
+| Estado      | Significado                                      |
+|-------------|--------------------------------------------------|
+| `CLOSED`    | Funcionando normal, todas las llamadas pasan     |
+| `OPEN`      | Cortado, el servicio dependiente falló demasiado |
+| `HALF_OPEN` | Probando recuperación, deja pasar algunas calls  |
 
 ## Desarrollo
 
